@@ -1,5 +1,6 @@
 {
   "name": "postflight",
+  "description": "Betaflight blackbox tuning agent — newsletter-style post-flight reviews",
   "owner": {
     "name": "Shoeys F. Newey"
   },
