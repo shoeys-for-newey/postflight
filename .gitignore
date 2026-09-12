@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+runs/
+postflight-runs/
+*.npz
+*.bbl
+*.bfl
+*.BBL
+page_data.json
+chart_data.json
+*_results.json

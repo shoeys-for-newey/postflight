@@ -1,0 +1,13 @@
+{
+  "name": "postflight",
+  "description": "Betaflight blackbox tuning agent — decodes your logs, analyzes hover/PIDs/filters/balance, and publishes a newsletter-style review with one round of concrete changes",
+  "version": "0.1.0",
+  "author": {
+    "name": "Shoeys F. Newey",
+    "url": "https://github.com/shoeys-for-newey"
+  },
+  "homepage": "https://github.com/shoeys-for-newey/postflight",
+  "repository": "https://github.com/shoeys-for-newey/postflight",
+  "license": "MIT",
+  "keywords": ["betaflight", "blackbox", "fpv", "drone", "quad", "tuning", "pid"]
+}

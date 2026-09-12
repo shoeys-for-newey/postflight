@@ -1,0 +1,488 @@
+<!--
+postflight newsletter template
+==============================
+How to use (the postflight skill automates this):
+  1. Copy this file into the run folder as <quad>_review.html.
+  2. Replace every {{...}} placeholder with real prose from the analysis. The text inside
+     each placeholder describes what belongs there and the voice to write it in.
+     Delete sections that don't apply to this run; keep element ids intact.
+  3. Inline the run's page_data.json in place of __DATA__ near the bottom.
+  4. Publish (Claude: Artifact tool) or open locally. Charts that lack data
+     (no eRPM, no current sensor, no full-throttle punch) hide themselves.
+Chart engine and CSS below the body are stable — edit prose and, if needed,
+per-run editorial refs/labels inside render(), nothing else.
+-->
+<meta charset="utf-8">
+<title>{{CRAFT}} Blackbox Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f3f5f8; --surface:#ffffff; --surface-2:#e9edf2; --ink:#161b23; --ink-2:#4a5464; --ink-3:#717c8c;
+  --line:#d6dce5; --line-2:#e6eaf0; --accent:#0d6b78; --accent-ink:#ffffff;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+  --ramp0:#f3f5f8; --ramp1:#cde2fb; --ramp2:#86b6ef; --ramp3:#3987e5; --ramp4:#1c5cab; --ramp5:#0d366b;
+  --code-bg:#1b2029; --code-ink:#e6ebf2; --shadow:0 1px 2px rgba(22,27,35,.06),0 4px 14px rgba(22,27,35,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#13161b; --surface:#1e2229; --surface-2:#262b34; --ink:#eef1f5; --ink-2:#b7bfcb; --ink-3:#8791a1;
+    --line:#333a46; --line-2:#2a3039; --accent:#46b5c3; --accent-ink:#0f1418;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+    --ramp0:#1e2229; --ramp1:#173a63; --ramp2:#1c5cab; --ramp3:#3987e5; --ramp4:#86b6ef; --ramp5:#cde2fb;
+    --code-bg:#0f1216; --code-ink:#e6ebf2; --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 14px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#13161b; --surface:#1e2229; --surface-2:#262b34; --ink:#eef1f5; --ink-2:#b7bfcb; --ink-3:#8791a1;
+  --line:#333a46; --line-2:#2a3039; --accent:#46b5c3; --accent-ink:#0f1418;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --ramp0:#1e2229; --ramp1:#173a63; --ramp2:#1c5cab; --ramp3:#3987e5; --ramp4:#86b6ef; --ramp5:#cde2fb;
+  --code-bg:#0f1216; --code-ink:#e6ebf2; --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 14px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Source Sans 3",system-ui,"Segoe UI",Roboto,sans-serif;font-size:17px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:40px 24px 80px}
+h1,h2,h3{font-family:"Barlow Condensed","Arial Narrow",Impact,sans-serif;text-wrap:balance;margin:0;line-height:1.05}
+h1{font-size:clamp(40px,6vw,64px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:34px;font-weight:600;margin-bottom:4px}
+h3{font-size:22px;font-weight:600;color:var(--ink-2)}
+.eyebrow{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:500}
+p{margin:0;max-width:68ch}
+.lede{font-size:19px;color:var(--ink-2);max-width:70ch}
+header{display:grid;gap:14px;margin-bottom:28px}
+.spec{display:flex;flex-wrap:wrap;gap:8px 18px;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13px;color:var(--ink-2);padding:12px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.spec b{color:var(--ink);font-weight:500}
+.verdicts{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:26px 0 8px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 18px 16px;box-shadow:var(--shadow);display:grid;gap:8px;align-content:start}
+.card .k{font-family:"Barlow Condensed",sans-serif;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.card .v{font-family:"Barlow Condensed",sans-serif;font-size:32px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.card .d{font-size:15px;color:var(--ink-2);line-height:1.4}
+.chip{display:inline-flex;align-items:center;gap:6px;font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink);background:var(--surface-2);width:max-content}
+.chip i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.chip.crit i{background:var(--crit)} .chip.serious i{background:var(--serious)} .chip.warn i{background:var(--warn)} .chip.good i{background:var(--good)}
+section{margin-top:56px;display:grid;gap:18px}
+.sec-head{display:grid;gap:6px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:18px;align-items:start}
+figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 16px 10px;box-shadow:var(--shadow);position:relative;min-width:0}
+figure figcaption{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+figure .t{font-family:"Barlow Condensed",sans-serif;font-size:19px;font-weight:600}
+figure .u{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-3)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink-2);margin:2px 0 4px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{width:16px;height:0;border-top:2.5px solid;display:inline-block}
+.legend i.dash{border-top-style:dashed}
+.legend i.thin{border-top-width:1.5px}
+.legend i.box{width:12px;height:12px;border:0;border-radius:2px}
+.plot{position:relative}
+.plot svg{width:100%;height:auto;display:block;overflow:visible}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-family:"IBM Plex Mono",monospace;font-size:12px;line-height:1.35;padding:6px 9px;border-radius:6px;white-space:nowrap;opacity:0;transform:translate(-50%,-110%);transition:opacity .08s;z-index:5;box-shadow:var(--shadow)}
+.tip.on{opacity:1}
+.finding{display:grid;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px;box-shadow:var(--shadow)}
+.finding ul{margin:0;padding-left:20px;display:grid;gap:8px}
+.finding li{max-width:75ch}
+.do{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;padding:12px 14px;border-radius:8px;background:var(--surface-2);border-left:4px solid var(--accent)}
+.do .lbl{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:16px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);padding-top:2px}
+code,kbd{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:.92em;background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.num{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+table{border-collapse:collapse;width:100%;font-size:15px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line-2);text-align:left;vertical-align:top}
+th{font-family:"Barlow Condensed",sans-serif;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+td.n,th.n{text-align:right;font-family:"IBM Plex Mono",monospace;font-size:14px}
+.tscroll{overflow-x:auto}
+pre.cli{background:var(--code-bg);color:var(--code-ink);font-family:"IBM Plex Mono",monospace;font-size:13.5px;line-height:1.55;padding:18px 20px;border-radius:10px;overflow-x:auto;margin:0;position:relative}
+pre.cli .c{color:#8fa3b8}
+.copy{position:absolute;top:10px;right:10px;font-family:"IBM Plex Mono",monospace;font-size:12px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
+.copy:focus-visible,summary:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+details{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 18px}
+summary{cursor:pointer;padding:14px 0;font-family:"Barlow Condensed",sans-serif;font-size:19px;font-weight:600}
+details .tscroll{padding-bottom:16px}
+.note{font-size:14.5px;color:var(--ink-3);max-width:80ch}
+a{color:var(--accent)}
+.delta{color:var(--ink-3)}
+@media (prefers-reduced-motion: reduce){.tip{transition:none}}
+@media (max-width:640px){.wrap{padding:28px 14px 60px} h2{font-size:28px} body{font-size:16px}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Blackbox tuning review · {{SOURCE_FILE}} · {{FLIGHT_CONTEXT: e.g. "first flights" or "round 2"}} · {{N}} segments · {{TOTAL}} s · {{DATE}}</div>
+  <h1>{{CRAFT}} Blackbox Review</h1>
+  <p class="lede">{{LEDE — 3-5 sentences, the whole review in miniature. Open with what kind of flights these were and the one-line health verdict ("it is a clean build" / "round two paid off"). Then the two or three things the log actually asks for, each with its headline number. Close with "One round of changes below." Friendly, concrete, verdict-first — a newsletter, not a lab report.}}</p>
+  <div class="spec">
+    <!-- Build facts from the log header, most identifying first. Bold the values that matter to the findings. -->
+    <span><b>{{FC_BOARD}}</b></span><span>Betaflight <b>{{FW}}</b></span><span>{{GYRO}}k gyro / <b>{{PID}}k PID</b></span><span>log <b>{{LOG_RATE}} kHz</b></span>
+    <span><b>{{MOTORS: size · KV}}</b> · {{PROP/FRAME}} · {{CELLS}}S</span><span>{{ESC PROTOCOL / RPM FILTER}}</span><span>{{RX}}</span><span>pack {{VSTART}} → {{VEND}} V</span><span>{{TUNE STATE: sliders, dyn idle, sag comp...}}</span>
+  </div>
+</header>
+
+<div class="verdicts">
+  <!-- One card per theme, matching the numbered sections: hover point, PIDs, filters, airframe/power.
+       .v is the headline number(s); chip class = good | warn | serious | crit with a 2-3 word action;
+       .d is 2-3 sentences: the finding, the evidence, the fix. -->
+  <div class="card"><div class="k">Hover point</div><div class="v">{{SET}} <span class="delta">set</span> · {{MEAS}} <span class="delta">measured</span></div><span class="chip warn"><i></i>{{ACTION}}</span><div class="d">{{FINDING + FIX, 2-3 sentences}}</div></div>
+  <div class="card"><div class="k">PIDs</div><div class="v">{{HEADLINE: e.g. t90 14–22 ms · +21–53 %}}</div><span class="chip serious"><i></i>{{ACTION}}</span><div class="d">{{FINDING + FIX}}</div></div>
+  <div class="card"><div class="k">Filters</div><div class="v">{{HEADLINE}}</div><span class="chip good"><i></i>{{ACTION}}</span><div class="d">{{FINDING + FIX}}</div></div>
+  <div class="card"><div class="k">Airframe</div><div class="v">{{HEADLINE}}</div><span class="chip warn"><i></i>{{ACTION}}</span><div class="d">{{FINDING + FIX}}</div></div>
+</div>
+
+<section id="hover">
+  <div class="sec-head"><div class="eyebrow">1 · Hover point</div><h2>{{SECTION HEADLINE — a claim, not a topic: "The quad hovers at 37 % output; the curve should say so"}}</h2>
+  <p>{{INTRO — the measured hover crossing (near-level and all-attitude), sample counts, drift over the pack, what the motors/current do at hover. Numbers inline, spelled out.}}</p></div>
+  <div class="grid2">
+    <figure><figcaption><span class="t">Vertical acceleration vs throttle</span><span class="u">binned medians · {{N_LEVEL}} near-level samples · {{N_ALL}} all</span></figcaption>
+      <div class="legend"><span><i style="border-color:var(--s1)"></i>accel Z, near level ({{TILT_KEY}})</span><span><i style="border-color:var(--ink-3)"></i>all attitudes</span><span><i class="dash" style="border-color:var(--s2)"></i>thr_hover (set)</span><span><i class="dash" style="border-color:var(--ink-3)"></i>1.00 G = hover</span></div>
+      <div class="plot" id="hoverChart"></div></figure>
+    <figure><figcaption><span class="t">Throttle curve, stick → output</span><span class="u">mid / expo / hover</span></figcaption>
+      <div class="legend"><span><i style="border-color:var(--s2)"></i>now: {{CUR}}</span><span><i style="border-color:var(--s1)"></i>proposed: {{PROP}}</span><span><i class="dash" style="border-color:var(--ink-3)"></i>hover output {{MEAS}} %</span></div>
+      <div class="plot" id="curveChart"></div></figure>
+  </div>
+  <div class="finding">
+    <ul>
+      <!-- 3-5 bullets. Each: bold claim, then the evidence and the mechanism in plain language.
+           Cover: where the hover really sits on the curve (and what the OSD shows), where the
+           throttle time actually went, what the proposed mid/expo/hover buys, related settings
+           (ap_hover_throttle on GPS builds). -->
+      <li>{{BULLET}}</li>
+      <li>{{BULLET}}</li>
+      <li>{{BULLET}}</li>
+    </ul>
+    <div class="do"><span class="lbl">Do</span><span>{{THE CLI CHANGES: <code>set thr_hover = ...</code> · <code>set thr_mid = ...</code> ...}}</span></div>
+  </div>
+</section>
+
+<section id="pids">
+  <div class="sec-head"><div class="eyebrow">2 · PIDs</div><h2>{{SECTION HEADLINE: e.g. "Quick, clean, and consistently underdamped"}}</h2>
+  <p>{{INTRO — how the step responses were recovered (two independent methods, window counts), whether they agree, and the one-line reading: a settled tune peaks ~1.05–1.15; overshoot without ringing = damping problem, overshoot with ringing = stability problem.}}</p></div>
+  <div class="grid2">
+    <figure><figcaption><span class="t">Step response, two methods</span><span class="u">setpoint &lt; 500 °/s · solid = deconvolution · dashed = LS-FIR</span></figcaption>
+      <div class="legend"><span><i style="border-color:var(--s1)"></i>roll</span><span><i style="border-color:var(--s2)"></i>pitch</span><span><i style="border-color:var(--s3)"></i>yaw</span><span><i class="dash" style="border-color:var(--ink-3)"></i>1.15 = 15 % overshoot</span></div>
+      <div class="plot" id="stepChart"></div></figure>
+    <figure><figcaption><span class="t">Largest roll input of the flight</span><span class="u">setpoint peak {{PEAK}} °/s</span></figcaption>
+      <div class="legend"><span><i style="border-color:var(--s2)"></i>setpoint</span><span><i style="border-color:var(--s1)"></i>gyro</span></div>
+      <div class="plot" id="inputChart"></div></figure>
+  </div>
+  <div class="tscroll"><table>
+    <thead><tr><th>Axis · method</th><th class="n">t50</th><th class="n">t90</th><th class="n">peak</th><th class="n">at</th><th class="n">overshoot</th><th class="n">windows / data</th></tr></thead>
+    <tbody id="stepTable"></tbody>
+  </table></div>
+  <div class="finding">
+    <ul>
+      <!-- One bullet per axis plus rise-time and oscillation checks. Bold lead per bullet
+           ("Roll overshoots most.", "Nothing oscillates."). Tie each number to its mechanism:
+           P momentum vs D, FF spikes, I-term standing loads from balance. -->
+      <li>{{BULLET}}</li>
+      <li>{{BULLET}}</li>
+      <li>{{BULLET}}</li>
+    </ul>
+    <div class="do"><span class="lbl">Do</span><span>{{THE CHANGE — one slider or axis change per round, with the resulting gains spelled out, the evidence it is safe (D-term noise headroom), and what peak to expect on the re-log. Name the NEXT change only as a conditional.}}</span></div>
+  </div>
+</section>
+
+<section id="filters">
+  <div class="sec-head"><div class="eyebrow">3 · Filters</div><h2>{{SECTION HEADLINE: e.g. "Nothing to do — and proof the notches are on target"}}</h2>
+  <p>{{INTRO — where the motor fundamental lives across the used throttle range vs the notch windows, the filtered floor in dB, total filter delay, and any motor_poles / eRPM cross-check the log allows.}}</p></div>
+  <div class="grid2">
+    <figure><figcaption><span class="t">Roll spectrum</span><span class="u">Welch PSD · dB · main flight</span></figcaption>
+      <div class="legend"><span><i style="border-color:var(--ink-3)"></i>gyro unfiltered</span><span><i style="border-color:var(--s1)"></i>gyro filtered</span><span><i style="border-color:var(--s2)"></i>D-term</span></div>
+      <div class="plot" id="psdChart"></div></figure>
+    <div class="finding">
+      <ul>
+        <!-- D-term quietness (RMS above 80 Hz), motor HF noise % per motor (bent shaft / bearing
+             signatures), notch ceiling vs punch-out fundamental, log-rate caveats
+             (a 1 kHz log stops at 500 Hz — recommend blackbox_sample_rate for the re-tune log). -->
+        <li>{{BULLET}}</li>
+        <li>{{BULLET}}</li>
+      </ul>
+      <div class="do"><span class="lbl">Do</span><span>{{USUALLY: leave filters alone; log-rate change for the re-tune log only.}}</span></div>
+    </div>
+  </div>
+  <div class="grid2">
+    <figure><figcaption><span class="t">Unfiltered roll gyro, throttle × frequency</span><span class="u" id="heatCap1">dB</span></figcaption>
+      <div class="legend"><span><i class="box" style="background:linear-gradient(90deg,var(--ramp1),var(--ramp5))"></i>low → high</span><span><i style="border-color:var(--s2)"></i>motor 1×</span><span><i class="dash" style="border-color:var(--s2)"></i>motor 2×</span></div>
+      <div class="plot" id="heatGyro"></div></figure>
+    <figure><figcaption><span class="t">Roll D-term, throttle × frequency</span><span class="u" id="heatCap2">dB</span></figcaption>
+      <div class="legend"><span><i class="box" style="background:linear-gradient(90deg,var(--ramp1),var(--ramp5))"></i>low → high</span><span><i class="dash" style="border-color:var(--ink-3)"></i>80 Hz</span></div>
+      <div class="plot" id="heatD"></div></figure>
+  </div>
+</section>
+
+<section id="airframe">
+  <div class="sec-head"><div class="eyebrow">4 · Airframe &amp; power</div><h2>{{SECTION HEADLINE: e.g. "Tail-heavy, and the rear pair pays for it on every punch"}}</h2>
+  <p>{{INTRO — inventory of the segments (what kind of flying each was, anything notable like a tumble), and where the balance numbers come from (calm samples, calm+level subset).}}</p></div>
+  <div class="grid2">
+    <figure><figcaption><span class="t">Motor output, calm vs calm-and-level</span><span class="u">|gyro| &lt; 60 °/s · {{LEVEL_DEF}} · {{THR_BAND}}</span></figcaption>
+      <div class="legend"><span><i class="box" style="background:var(--s1)"></i>calm, any attitude</span><span><i class="box" style="background:var(--s2)"></i>calm + level + band</span></div>
+      <div class="plot" id="motorChart"></div></figure>
+    <figure id="punchFig"><figcaption><span class="t">The full-throttle punch</span><span class="u" id="punchCap"></span></figcaption>
+      <div class="legend"><span><i class="dash" style="border-color:var(--ink-3)"></i>throttle</span><span><i style="border-color:var(--s2)"></i>RR</span><span><i class="thin" style="border-color:var(--s3)"></i>FR</span><span><i style="border-color:var(--s1)"></i>RL</span><span><i class="thin" style="border-color:var(--ink-2)"></i>FL</span></div>
+      <div class="plot" id="punchChart"></div></figure>
+  </div>
+  <div class="finding">
+    <ul>
+      <!-- Balance (front-rear / left-right split, standing I-term, where the mass fix is),
+           saturation (which corner clips first, % of high-throttle time at >=98), motor hardware
+           match (RPM per % output), thrust budget (hover vs punch RPM ratio), power numbers
+           (A/W at hover and cruise, mAh sanity check vs charger), housekeeping (motor_kv,
+           dynamic idle floor time, stick centering). Bold leads. -->
+      <li>{{BULLET}}</li>
+      <li>{{BULLET}}</li>
+      <li>{{BULLET}}</li>
+    </ul>
+  </div>
+  <div class="grid2">
+    <figure><figcaption><span class="t">Where the throttle lived</span><span class="u">post-curve · share of in-flight time · main flight</span></figcaption>
+      <div class="legend"><span><i class="box" style="background:var(--s1)"></i>% of flight</span></div>
+      <div class="plot" id="thrUseChart"></div></figure>
+    <figure id="ampsFig"><figcaption><span class="t">Current draw by throttle</span><span class="u">median per 2.5 % bin</span></figcaption>
+      <div class="legend"><span><i style="border-color:var(--s2)"></i>amps</span><span><i class="dash" style="border-color:var(--ink-3)"></i>hover</span></div>
+      <div class="plot" id="ampsChart"></div></figure>
+  </div>
+</section>
+
+<section id="changes">
+  <div class="sec-head"><div class="eyebrow">5 · Round {{N}}</div><h2>What to change before the next pack</h2>
+  <p>{{Ordered by how much they matter. Tell the pilot what kind of flight to fly for the
+     re-log and exactly which numbers to compare afterwards (step peaks, hover crossing,
+     motor split, saturation share).}}</p></div>
+  <div class="tscroll"><table>
+    <thead><tr><th>Setting</th><th class="n">Now</th><th class="n">Proposed</th><th>Why</th></tr></thead>
+    <tbody>
+      <!-- One row per change, most important first. Include the non-CLI ones (battery position,
+           prop inspection) and the deferred ones marked "(later)" with their trigger condition. -->
+      <tr><td>{{SETTING}}</td><td class="n">{{NOW}}</td><td class="n">{{PROPOSED}}</td><td>{{WHY, one line}}</td></tr>
+    </tbody>
+  </table></div>
+  <pre class="cli" id="cli"><button class="copy" type="button" data-copy>Copy</button><span class="c"># {{CRAFT}} — round {{N}}, from {{SOURCE_FILE}} ({{DATE}})</span>
+{{CLI BLOCK — the exact paste-ready commands, grouped with # comments (sliders / throttle /
+housekeeping), ending in "save". Comment-out anything that is for the re-tune log only.}}
+save</pre>
+  <p class="note">{{Caveats for the CLI block: slider assumptions (simplified tuning on/off), the
+     direct-set equivalents, anything that resets when a slider moves.}}</p>
+</section>
+
+<section id="method">
+  <div class="sec-head"><div class="eyebrow">Method &amp; caveats</div><h2>How these numbers were made</h2></div>
+  <div class="finding">
+    <ul>
+      <!-- The honest fine print: what the source file contained and what was skipped, how hover /
+           step / noise numbers are computed (methods and thresholds), where the throttle-curve
+           model comes from, log-rate limits, and which numbers need a harder flight to firm up. -->
+      <li>{{BULLET}}</li>
+      <li>{{BULLET}}</li>
+    </ul>
+  </div>
+  <details><summary>Data tables</summary>
+    <div class="tscroll"><table id="hoverTable"><thead><tr><th class="n">Throttle bin (%)</th><th class="n">accel Z (G), level</th><th class="n">samples</th><th class="n">accel Z (G), all</th><th class="n">samples</th></tr></thead><tbody></tbody></table></div>
+    <div class="tscroll"><table id="motorTable"><thead><tr><th>Condition</th><th class="n">RR</th><th class="n">FR</th><th class="n">RL</th><th class="n">FL</th><th class="n">front − rear</th><th class="n">samples</th></tr></thead><tbody></tbody></table></div>
+    <div class="tscroll"><table id="ampsTable"><thead><tr><th class="n">Throttle bin (%)</th><th class="n">current (A)</th><th class="n">samples</th></tr></thead><tbody></tbody></table></div>
+  </details>
+</section>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(function(){
+const D=JSON.parse(document.getElementById('data').textContent);
+const NS='http://www.w3.org/2000/svg';
+const cssVar=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+function txt(parent,x,y,s,attrs){const t=el('text',Object.assign({x,y,'font-family':'IBM Plex Mono, monospace','font-size':'11.5px',fill:'var(--ink-3)'},attrs||{}),parent);t.textContent=s;return t;}
+function fmt(v,d){return (Math.round(v*Math.pow(10,d))/Math.pow(10,d)).toFixed(d);}
+function ticks(lo,hi,n){const span=hi-lo,raw=span/n,p=Math.pow(10,Math.floor(Math.log10(raw)));let s=raw/p;s=s<1.5?1:s<3.5?2:s<7.5?5:10;const st=s*p,out=[];for(let v=Math.ceil(lo/st)*st;v<=hi+1e-9;v+=st)out.push(+v.toFixed(6));return out;}
+function tipFor(host){let t=host.querySelector('.tip');if(!t){t=document.createElement('div');t.className='tip';host.appendChild(t);}return t;}
+
+function lineChart(id,cfg){
+  const host=document.getElementById(id);host.innerHTML='';
+  const W=cfg.w||740,H=cfg.h||300,m={l:52,r:16,t:14,b:cfg.xlab===''?18:38};
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':cfg.aria||''},host);
+  const iw=W-m.l-m.r,ih=H-m.t-m.b;
+  const xs=v=>m.l+(v-cfg.x[0])/(cfg.x[1]-cfg.x[0])*iw, ys=v=>m.t+ih-(v-cfg.y[0])/(cfg.y[1]-cfg.y[0])*ih;
+  const g=el('g',{},svg);
+  ticks(cfg.y[0],cfg.y[1],cfg.yn||5).forEach(v=>{el('line',{x1:m.l,x2:W-m.r,y1:ys(v),y2:ys(v),stroke:'var(--line-2)','stroke-width':1},g);txt(g,m.l-8,ys(v)+4,fmt(v,cfg.yd==null?1:cfg.yd),{'text-anchor':'end'});});
+  if(cfg.xlab!=='')ticks(cfg.x[0],cfg.x[1],6).forEach(v=>{txt(g,xs(v),H-m.b+16,fmt(v,cfg.xd||0),{'text-anchor':'middle'});});
+  el('line',{x1:m.l,x2:W-m.r,y1:m.t+ih,y2:m.t+ih,stroke:'var(--line)'},g);
+  if(cfg.xlab)txt(g,W-m.r,H-4,cfg.xlab,{'text-anchor':'end',fill:'var(--ink-2)'});
+  txt(g,m.l,m.t-2,cfg.ylab,{fill:'var(--ink-2)'});
+  (cfg.bands||[]).forEach(b=>{el('rect',{x:xs(b.x0),y:m.t,width:xs(b.x1)-xs(b.x0),height:ih,fill:'var(--surface-2)'},g);if(b.label)txt(g,xs(b.x0)+4,m.t+12,b.label);});
+  (cfg.refs||[]).forEach(r=>{
+    if(r.axis==='y'){el('line',{x1:m.l,x2:W-m.r,y1:ys(r.v),y2:ys(r.v),stroke:r.color||'var(--ink-3)','stroke-dasharray':r.dash||'5 4','stroke-width':1.2},g);if(r.label)txt(g,W-m.r-4,ys(r.v)-5,r.label,{'text-anchor':'end',fill:r.color||'var(--ink-3)'});}
+    else{el('line',{x1:xs(r.v),x2:xs(r.v),y1:m.t,y2:m.t+ih,stroke:r.color||'var(--ink-3)','stroke-dasharray':r.dash||'5 4','stroke-width':1.2},g);if(r.label)txt(g,xs(r.v)+5,m.t+12+(r.dy||0),r.label,{fill:r.color||'var(--ink-3)'});}
+  });
+  const clip=el('clipPath',{id:id+'clip'},svg);el('rect',{x:m.l,y:m.t-1,width:iw,height:ih+2},clip);
+  const gl=el('g',{'clip-path':`url(#${id}clip)`},svg);
+  cfg.series.forEach(s=>{
+    let d='';s.x.forEach((x,i)=>{const y=s.y[i];if(y==null||!isFinite(y))return;d+=(d?'L':'M')+xs(x).toFixed(1)+' '+ys(y).toFixed(1);});
+    el('path',{d,fill:'none',stroke:s.color,'stroke-width':s.width||2,'stroke-dasharray':s.dash||'none','stroke-linejoin':'round','stroke-linecap':'round',opacity:s.opacity||1},gl);
+    if(s.markers){s.x.forEach((x,i)=>{el('circle',{cx:xs(x),cy:ys(s.y[i]),r:3.2,fill:'var(--surface)',stroke:s.color,'stroke-width':2},gl);});}
+  });
+  (cfg.points||[]).forEach(p=>{el('circle',{cx:xs(p.x),cy:ys(p.y),r:5,fill:p.color,stroke:'var(--surface)','stroke-width':2},svg);if(p.label)txt(svg,xs(p.x)+(p.dx||8),ys(p.y)+(p.dy||4),p.label,{fill:'var(--ink)','font-weight':500});});
+  (cfg.labels||[]).forEach(l=>txt(svg,xs(l.x),ys(l.y),l.text,{fill:l.color||'var(--ink)','font-weight':500,'text-anchor':l.anchor||'start'}));
+  const tip=tipFor(host);const cross=el('line',{y1:m.t,y2:m.t+ih,stroke:'var(--ink-2)','stroke-width':1,opacity:0},svg);
+  const dots=cfg.series.map(s=>el('circle',{r:4,fill:s.color,stroke:'var(--surface)','stroke-width':1.5,opacity:0},svg));
+  svg.addEventListener('mousemove',ev=>{
+    const r=svg.getBoundingClientRect();const px=(ev.clientX-r.left)*W/r.width;if(px<m.l||px>W-m.r){return;}
+    const xv=cfg.x[0]+(px-m.l)/iw*(cfg.x[1]-cfg.x[0]);
+    let lines=[cfg.xfmt?cfg.xfmt(xv):fmt(xv,cfg.xd||0)+' '+cfg.xunit];let anyX=null;
+    cfg.series.forEach((s,i)=>{if(s.noTip){dots[i].setAttribute('opacity',0);return;}let bi=-1,bd=1e18;s.x.forEach((x,k)=>{const d=Math.abs(x-xv);if(d<bd&&s.y[k]!=null){bd=d;bi=k;}});
+      if(bi<0||bd>(cfg.x[1]-cfg.x[0])/20){dots[i].setAttribute('opacity',0);return;}
+      anyX=s.x[bi];dots[i].setAttribute('cx',xs(s.x[bi]));dots[i].setAttribute('cy',ys(s.y[bi]));dots[i].setAttribute('opacity',1);
+      lines.push(s.name+': '+fmt(s.y[bi],s.yd==null?2:s.yd)+(s.unit?' '+s.unit:''));});
+    if(anyX==null){tip.classList.remove('on');cross.setAttribute('opacity',0);return;}
+    cross.setAttribute('x1',xs(anyX));cross.setAttribute('x2',xs(anyX));cross.setAttribute('opacity',.6);
+    tip.innerHTML=lines.join('<br>');tip.style.left=(xs(anyX)*r.width/W)+'px';tip.style.top=(m.t*r.height/H)+'px';tip.classList.add('on');
+  });
+  svg.addEventListener('mouseleave',()=>{tip.classList.remove('on');cross.setAttribute('opacity',0);dots.forEach(d=>d.setAttribute('opacity',0));});
+}
+
+function heatmap(id,cfg){
+  const host=document.getElementById(id);host.innerHTML='';
+  const W=740,H=330,m={l:52,r:16,t:14,b:38};
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':cfg.aria||''},host);
+  const iw=W-m.l-m.r,ih=H-m.t-m.b;
+  const rows=cfg.rows,cols=cfg.f.length;
+  const x0=cfg.f[0],x1=cfg.f[cols-1]+(cfg.f[1]-cfg.f[0]);
+  const xs=v=>m.l+(v-x0)/(x1-x0)*iw;
+  const tb=cfg.tb,rowsUsed=rows.filter(r=>cfg.cnt[r]>2);
+  const ylo=tb[rowsUsed[0]],yhi=tb[rowsUsed[rowsUsed.length-1]]+2.5;
+  const ys=v=>m.t+ih-(v-ylo)/(yhi-ylo)*ih;
+  const vals=[];rowsUsed.forEach(r=>cfg.M[r].forEach((v,c)=>{if(cfg.f[c]>=20)vals.push(v);}));vals.sort((a,b)=>a-b);
+  const lo=vals[Math.floor(vals.length*.05)],hi=vals[Math.floor(vals.length*.985)];
+  const ramp=['--ramp0','--ramp1','--ramp2','--ramp3','--ramp4','--ramp5'].map(cssVar);
+  function hex2(h){h=h.replace('#','');return [0,2,4].map(i=>parseInt(h.substr(i,2),16));}
+  const rc=ramp.map(hex2);
+  function color(v){let t=(v-lo)/(hi-lo);t=Math.max(0,Math.min(1,t));const p=t*(rc.length-1),i=Math.min(rc.length-2,Math.floor(p)),f=p-i;const c=rc[i].map((a,k)=>Math.round(a+(rc[i+1][k]-a)*f));return `rgb(${c[0]},${c[1]},${c[2]})`;}
+  const g=el('g',{},svg);
+  const cw=iw/cols,rh=ih/rowsUsed.length;
+  rowsUsed.forEach((r,ri)=>{cfg.M[r].forEach((v,c)=>{el('rect',{x:xs(cfg.f[c]),y:ys(tb[r]+2.5),width:cw+0.5,height:rh+0.5,fill:color(v),'data-r':r,'data-c':c},g);});});
+  ticks(x0,x1,8).forEach(v=>{txt(svg,xs(v),H-m.b+16,fmt(v,0),{'text-anchor':'middle'});});
+  ticks(ylo,yhi,5).forEach(v=>{txt(svg,m.l-8,ys(v)+4,fmt(v,0),{'text-anchor':'end'});});
+  txt(svg,W-m.r,H-4,'frequency (Hz)',{'text-anchor':'end',fill:'var(--ink-2)'});txt(svg,m.l,m.t-2,'throttle (%)',{fill:'var(--ink-2)'});
+  (cfg.lines||[]).forEach(L=>{let d='';L.pts.forEach(p=>{if(p[0]==null||p[1]<ylo||p[1]>yhi)return;d+=(d?'L':'M')+xs(p[0]).toFixed(1)+' '+ys(p[1]).toFixed(1);});el('path',{d,fill:'none',stroke:L.color,'stroke-width':2,'stroke-dasharray':L.dash||'none'},svg);if(L.label){const p=L.pts.filter(p=>p[0]!=null&&p[1]<=yhi);if(p.length){const q=p[p.length-1];txt(svg,xs(q[0])+6,ys(q[1])+4,L.label,{fill:L.color,'font-weight':500});}}});
+  (cfg.vrefs||[]).forEach(r=>{el('line',{x1:xs(r.v),x2:xs(r.v),y1:m.t,y2:m.t+ih,stroke:r.color||'var(--ink-3)','stroke-dasharray':'5 4','stroke-width':1.2},svg);txt(svg,xs(r.v)+5,m.t+12,r.label,{fill:r.color||'var(--ink-3)'});});
+  const tip=tipFor(host);
+  svg.addEventListener('mousemove',ev=>{const t=ev.target;if(t.tagName!=='rect'||!t.hasAttribute('data-r')){tip.classList.remove('on');return;}
+    const r=+t.getAttribute('data-r'),c=+t.getAttribute('data-c');const rr=svg.getBoundingClientRect();
+    tip.innerHTML=`${fmt(tb[r],1)}–${fmt(tb[r]+2.5,1)} % throttle<br>${fmt(cfg.f[c],0)} Hz · ${fmt(cfg.M[r][c],1)} dB`;
+    tip.style.left=((xs(cfg.f[c])+cw/2)*rr.width/W)+'px';tip.style.top=(ys(tb[r]+2.5)*rr.height/H)+'px';tip.classList.add('on');});
+  svg.addEventListener('mouseleave',()=>tip.classList.remove('on'));
+}
+
+function bars(id,cfg){
+  const host=document.getElementById(id);host.innerHTML='';
+  const W=740,H=cfg.h||300,m={l:52,r:16,t:14,b:38};
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':cfg.aria||''},host);
+  const iw=W-m.l-m.r,ih=H-m.t-m.b;const ymax=cfg.ymax;const vd=cfg.vd==null?0:cfg.vd;
+  const ys=v=>m.t+ih-v/ymax*ih;
+  ticks(0,ymax,5).forEach(v=>{el('line',{x1:m.l,x2:W-m.r,y1:ys(v),y2:ys(v),stroke:'var(--line-2)'},svg);txt(svg,m.l-8,ys(v)+4,fmt(v,0),{'text-anchor':'end'});});
+  txt(svg,m.l,m.t-2,cfg.ylab,{fill:'var(--ink-2)'});
+  if(cfg.xlab)txt(svg,W-m.r,H-4,cfg.xlab,{'text-anchor':'end',fill:'var(--ink-2)'});
+  const G=cfg.groups.length,S=cfg.series.length,gw=iw/G,bw=Math.min(cfg.bwMax||26,(gw-(S>1?24:10))/S);
+  const tip=tipFor(host);
+  cfg.groups.forEach((gname,gi)=>{
+    const cx=m.l+gw*gi+gw/2;txt(svg,cx,H-m.b+18,gname,{'text-anchor':'middle',fill:'var(--ink-2)','font-weight':500,'font-size':cfg.gfs||'11.5px'});
+    cfg.series.forEach((s,si)=>{const v=s.v[gi];const x=cx-(S*bw+(S-1)*2)/2+si*(bw+2);const y=ys(v);
+      const r=el('rect',{x,y:y,width:bw,height:m.t+ih-y,fill:s.color,rx:0},svg);
+      el('rect',{x,y:y,width:bw,height:Math.min(6,m.t+ih-y),fill:s.color,rx:3},svg);
+      if(cfg.labelAll||v>=(cfg.labelMin||0))txt(svg,x+bw/2,y-5,fmt(v,vd),{'text-anchor':'middle',fill:'var(--ink-2)'});
+      r.addEventListener('mousemove',ev=>{const rr=svg.getBoundingClientRect();tip.innerHTML=`${s.name} · ${gname}<br>${fmt(v,1)} ${cfg.unit||'% output'}`;tip.style.left=((x+bw/2)*rr.width/W)+'px';tip.style.top=(y*rr.height/H)+'px';tip.classList.add('on');});
+      r.addEventListener('mouseleave',()=>tip.classList.remove('on'));
+    });
+  });
+  el('line',{x1:m.l,x2:W-m.r,y1:m.t+ih,y2:m.t+ih,stroke:'var(--line)'},svg);
+}
+
+function render(){
+  // 1. hover — x-range from the data bins; thr_hover ref from the curve args
+  const hl=D.hoverLevel,ha=D.hoverAll,hm=D.hoverMeas;
+  const hb=ha.concat(hl).map(b=>b[0]);
+  const hx=[Math.max(0,Math.floor(Math.min.apply(null,hb)/5)*5-5),Math.ceil(Math.max.apply(null,hb)/5)*5+5];
+  lineChart('hoverChart',{x:hx,y:[0,2.0],yd:1,xlab:'post-curve throttle (%)',ylab:'accel Z (G)',xunit:'%',aria:'Vertical acceleration versus throttle, near level and all attitudes',
+    series:[{name:'all attitudes',x:ha.map(b=>b[0]),y:ha.map(b=>b[1]),color:'var(--ink-3)',width:1.4,unit:'G'},{name:'near level',x:hl.map(b=>b[0]),y:hl.map(b=>b[1]),color:'var(--s1)',markers:true,unit:'G'}],
+    refs:[{axis:'y',v:1,label:'1.00 G',color:'var(--ink-3)'},{axis:'x',v:D.curve.curHover,label:'thr_hover = '+D.curve.curHover+' (set)',color:'var(--s2)'},{axis:'x',v:hm,label:'measured '+fmt(hm,1)+' %',color:'var(--s1)',dash:'2 3',dy:14}]});
+  // 2. curve
+  const cur=D.curve.cur,prop=D.curve.prop;
+  const cross=(c,t)=>{let b=c[0];for(const p of c){if(Math.abs(p[1]-t)<Math.abs(b[1]-t))b=p;}return b;};
+  const cc=cross(cur,hm),cp=cross(prop,hm);
+  lineChart('curveChart',{x:[0,100],y:[0,100],yd:0,xlab:'stick (%, what the OSD shows)',ylab:'output (%)',xunit:'% stick',aria:'Throttle curve current versus proposed',
+    series:[{name:'linear',x:[0,100],y:[0,100],color:'var(--line)',width:1.2,dash:'3 4',yd:0,unit:'%',noTip:true},{name:'now '+D.curve.curLabel,x:cur.map(p=>p[0]),y:cur.map(p=>p[1]),color:'var(--s2)',yd:1,unit:'%'},{name:'proposed '+D.curve.propLabel,x:prop.map(p=>p[0]),y:prop.map(p=>p[1]),color:'var(--s1)',yd:1,unit:'%'}],
+    refs:[{axis:'y',v:hm,label:'hover output '+fmt(hm,1)+' %',color:'var(--ink-3)'}],
+    points:[{x:cc[0],y:cc[1],color:'var(--s2)',label:'hover @ '+fmt(cc[0],0)+' % stick',dx:10,dy:-8},{x:cp[0],y:cp[1],color:'var(--s1)',label:'@ '+fmt(cp[0],0)+' %',dx:10,dy:14}]});
+  // 3. step (deconvolution solid, LS-FIR dashed)
+  const st=D.step;const kms=D.stepFs/1000;const tms=st.roll.curve.map((_,i)=>i/kms);
+  const sc=D.stepCheck;const ck=a=>sc[a].curve.map((_,i)=>i*1000/sc[a].fs);
+  lineChart('stepChart',{x:[0,250],y:[0,1.8],yd:1,xlab:'time after step (ms)',ylab:'response (1.0 = setpoint)',xunit:'ms',aria:'Pooled step response for roll, pitch and yaw, two methods',
+    series:[{name:'roll',x:tms,y:st.roll.curve,color:'var(--s1)'},{name:'pitch',x:tms,y:st.pitch.curve,color:'var(--s2)'},{name:'yaw',x:tms,y:st.yaw.curve,color:'var(--s3)'},
+      {name:'roll (LS)',x:ck('roll'),y:sc.roll.curve,color:'var(--s1)',width:1.2,dash:'4 3',opacity:.75},{name:'pitch (LS)',x:ck('pitch'),y:sc.pitch.curve,color:'var(--s2)',width:1.2,dash:'4 3',opacity:.75},{name:'yaw (LS)',x:ck('yaw'),y:sc.yaw.curve,color:'var(--s3)',width:1.2,dash:'4 3',opacity:.75}],
+    refs:[{axis:'y',v:1,label:'',color:'var(--line)',dash:'1 0'},{axis:'y',v:1.15,label:'1.15',color:'var(--ink-3)'}],
+    labels:[{x:st.roll.m.t_peak+8,y:st.roll.m.peak+0.06,text:'roll '+fmt(st.roll.m.peak,2),color:'var(--s1)'},{x:st.pitch.m.t_peak+30,y:st.pitch.m.peak+0.02,text:'pitch '+fmt(st.pitch.m.peak,2),color:'var(--s2)'},{x:st.yaw.m.t_peak+6,y:st.yaw.m.peak+0.02,text:'yaw '+fmt(st.yaw.m.peak,2),color:'var(--s3)'}]});
+  const tb=document.getElementById('stepTable');tb.innerHTML='';
+  D.stepRows.forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${r[0]}</td><td class="n">${r[1]} ms</td><td class="n">${r[2]} ms</td><td class="n">${r[3]}</td><td class="n">${r[4]} ms</td><td class="n">${r[5]}</td><td class="n">${r[6]}</td>`;tb.appendChild(tr);});
+  // 4. largest roll input — x-range from the segment length
+  const fseg=D.flip_seg;const ft=fseg.t.map(v=>v*1000);
+  const fr=Math.ceil(Math.max.apply(null,fseg.sp.concat(fseg.gyro).map(Math.abs))/100)*100;
+  lineChart('inputChart',{x:[0,Math.ceil(ft[ft.length-1]/100)*100],y:[-fr,fr],yd:0,xlab:'time (ms)',ylab:'roll rate (°/s)',xunit:'ms',aria:'Roll setpoint and gyro during the largest input',
+    series:[{name:'setpoint',x:ft,y:fseg.sp,color:'var(--s2)',yd:0,unit:'°/s'},{name:'gyro',x:ft,y:fseg.gyro,color:'var(--s1)',yd:0,unit:'°/s'}],refs:[{axis:'y',v:0,color:'var(--line)',dash:'1 0'}]});
+  // 5. psd — x-range from the log's Nyquist; motor band + hover ref from eRPM when available
+  const p=D.psd_roll;const fmax=p.f[p.f.length-1];
+  const all=p.Pu.concat(p.Pf,p.Pd);const ylo=Math.floor(Math.min.apply(null,all)/5)*5,yhi=Math.ceil(Math.max.apply(null,all)/5)*5;
+  const h=D.heat;
+  const rpmHz=(D.rpm_by_thr||[]).map((v,i)=>v==null?null:[h.tb[i]+1.25,v/60]).filter(x=>x);
+  const pbands=[],prefs=[];
+  if(rpmHz.length){
+    const lo=Math.min.apply(null,rpmHz.map(x=>x[1])),hi=Math.min(fmax,Math.max.apply(null,rpmHz.map(x=>x[1])));
+    pbands.push({x0:lo,x1:hi,label:'motor 1× across throttle range'});
+    let best=rpmHz[0];rpmHz.forEach(x=>{if(Math.abs(x[0]-hm)<Math.abs(best[0]-hm))best=x;});
+    if(best[1]<=fmax)prefs.push({axis:'x',v:best[1],label:'hover '+fmt(best[1],0)+' Hz',color:'var(--s2)',dy:14});
+  }
+  lineChart('psdChart',{x:[0,Math.ceil(fmax/10)*10],y:[ylo,yhi],yd:0,xlab:'frequency (Hz)',ylab:'dB',xunit:'Hz',aria:'Roll gyro and D-term spectra',
+    bands:pbands,
+    series:[{name:'unfiltered',x:p.f,y:p.Pu,color:'var(--ink-3)',width:1.4,yd:1,unit:'dB'},{name:'filtered',x:p.f,y:p.Pf,color:'var(--s1)',yd:1,unit:'dB'},{name:'D-term',x:p.f,y:p.Pd,color:'var(--s2)',width:1.6,yd:1,unit:'dB'}],
+    refs:prefs});
+  // 6. heatmaps — bin captions computed from the data
+  const rows=h.tb.map((_,i)=>i);
+  const binTxt='dB · '+fmt(h.f[1]-h.f[0],1)+' Hz bins · 2.5 % throttle rows';
+  document.getElementById('heatCap1').textContent=binTxt;document.getElementById('heatCap2').textContent=binTxt;
+  const rpm1=(D.rpm_by_thr||[]).map((v,i)=>v==null?[null,null]:[v/60,h.tb[i]+1.25]);
+  const rpm2=(D.rpm_by_thr||[]).map((v,i)=>v==null?[null,null]:[v/30,h.tb[i]+1.25]);
+  heatmap('heatGyro',{f:h.f,tb:h.tb,cnt:h.cnt,rows,M:h.gu0,aria:'Unfiltered roll gyro power by throttle and frequency',lines:rpmHz.length?[{pts:rpm1,color:'var(--s2)',label:'1×'},{pts:rpm2,color:'var(--s2)',dash:'5 4',label:'2×'}]:[]});
+  heatmap('heatD',{f:h.f,tb:h.tb,cnt:h.cnt,rows,M:h.d0,aria:'Roll D-term power by throttle and frequency',vrefs:[{v:80,label:'80 Hz'}]});
+  // 7. motors — y-max from the data
+  const mmax=Math.max.apply(null,D.motors[0].concat(D.motors[1]));
+  bars('motorChart',{ymax:Math.ceil(mmax*1.3/10)*10,ylab:'motor output (%)',groups:['1 · RR','2 · FR','3 · RL','4 · FL'],aria:'Per-motor mean output, calm versus calm-and-level',vd:1,
+    series:[{name:'calm',v:D.motors[0],color:'var(--s1)'},{name:'calm + level',v:D.motors[1],color:'var(--s2)'}]});
+  // 8. punch-out — only when the flight had one
+  if(D.punch){
+    const P=D.punch;const pt=P.t;const pend=pt[pt.length-1];
+    document.getElementById('punchCap').textContent=fmt(pend,0)+' s from t = '+fmt(P.t0,1)+' s · 100 Hz';
+    lineChart('punchChart',{x:[0,pend],y:[0,100],yd:0,xlab:'time (s)',ylab:'output (%)',xunit:'s',xd:2,aria:'Throttle and the four motor outputs through the full-throttle punch',
+      series:[{name:'throttle',x:pt,y:P.thr,color:'var(--ink-3)',width:1.4,dash:'5 4',yd:0,unit:'%'},{name:'RR',x:pt,y:P.m[0],color:'var(--s2)',width:2.4,yd:0,unit:'%'},{name:'FR',x:pt,y:P.m[1],color:'var(--s3)',width:1.4,yd:0,unit:'%'},{name:'RL',x:pt,y:P.m[2],color:'var(--s1)',width:2,yd:0,unit:'%'},{name:'FL',x:pt,y:P.m[3],color:'var(--ink-2)',width:1.4,yd:0,unit:'%'}],
+      refs:[{axis:'y',v:98,label:'98 % = clipped',color:'var(--ink-3)',dash:'2 3'}]});
+  }else{document.getElementById('punchFig').style.display='none';}
+  // 9. throttle usage + amps
+  bars('thrUseChart',{ymax:Math.ceil(Math.max.apply(null,D.thrUse.pct)/5)*5+5,ylab:'% of flight',xlab:'post-curve throttle (%)',groups:D.thrUse.labels,aria:'Share of flight time per throttle bin',vd:1,unit:'% of flight',bwMax:34,labelMin:0.5,
+    series:[{name:'share',v:D.thrUse.pct,color:'var(--s1)'}]});
+  const A=D.amps;
+  if(A.length){
+    const amax=Math.ceil(Math.max.apply(null,A.map(a=>a[1]))/2)*2+2;
+    lineChart('ampsChart',{x:[0,Math.ceil((A[A.length-1][0]+1.25)/5)*5],y:[0,amax],yd:0,xlab:'post-curve throttle (%)',ylab:'current (A)',xunit:'%',aria:'Median current per throttle bin',
+      series:[{name:'current',x:A.map(a=>a[0]),y:A.map(a=>a[1]),color:'var(--s2)',markers:true,yd:1,unit:'A'}],refs:[{axis:'x',v:hm,label:'hover',color:'var(--ink-3)'}]});
+  }else{document.getElementById('ampsFig').style.display='none';}
+  // tables
+  const ht=document.querySelector('#hoverTable tbody');ht.innerHTML='';
+  const amap={};ha.forEach(b=>amap[b[0]]=b);
+  hl.forEach(b=>{const a=amap[b[0]]||[b[0],NaN,''];const tr=document.createElement('tr');tr.innerHTML=`<td class="n">${fmt(b[0]-1.25,1)}–${fmt(b[0]+1.25,1)}</td><td class="n">${fmt(b[1],2)}</td><td class="n">${b[2]}</td><td class="n">${isFinite(a[1])?fmt(a[1],2):'—'}</td><td class="n">${a[2]}</td>`;ht.appendChild(tr);});
+  const mt=document.querySelector('#motorTable tbody');mt.innerHTML='';D.motors.forEach((m,i)=>{const fr2=(m[1]+m[3])/2-(m[0]+m[2])/2;const tr=document.createElement('tr');tr.innerHTML=`<td>${D.motorLabels[i]}</td>`+m.map(v=>`<td class="n">${fmt(v,1)}</td>`).join('')+`<td class="n">${fr2>=0?'+':''}${fmt(fr2,1)}</td><td class="n">${D.motorN[i]}</td>`;mt.appendChild(tr);});
+  if(D.motorRpm){const m=D.motorRpm;const fr2=(m[1]+m[3])/2-(m[0]+m[2])/2;const tr=document.createElement('tr');tr.innerHTML=`<td>calm · RPM</td>`+m.map(v=>`<td class="n">${fmt(v/1000,1)} k</td>`).join('')+`<td class="n">${fr2>=0?'+':''}${fmt(fr2/1000,1)} k</td><td class="n">${D.motorN[0]}</td>`;mt.appendChild(tr);}
+  if(D.rpmPerPct){const m=D.rpmPerPct;const tr=document.createElement('tr');tr.innerHTML=`<td>calm · RPM per % output</td>`+m.map(v=>`<td class="n">${v}</td>`).join('')+`<td class="n">—</td><td class="n">${D.motorN[0]}</td>`;mt.appendChild(tr);}
+  const at=document.querySelector('#ampsTable tbody');at.innerHTML='';A.forEach(a=>{const tr=document.createElement('tr');tr.innerHTML=`<td class="n">${fmt(a[0]-1.25,1)}–${fmt(a[0]+1.25,1)}</td><td class="n">${fmt(a[1],1)}</td><td class="n">${a[2]}</td>`;at.appendChild(tr);});
+}
+render();
+try{const mq=matchMedia('(prefers-color-scheme: dark)');mq.addEventListener('change',render);new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});}catch(e){}
+document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',()=>{const pre=b.parentElement;const text=[...pre.childNodes].filter(n=>n!==b).map(n=>n.textContent).join('');navigator.clipboard&&navigator.clipboard.writeText(text).then(()=>{b.textContent='Copied';setTimeout(()=>b.textContent='Copy',1500);});}));
+})();
+</script>
