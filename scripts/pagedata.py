@@ -41,11 +41,12 @@ D['motors']=[SR['calm']['motors'],SR['calm+level+25-45%thr']['motors']]; D['moto
 D['motorLabels']=['calm (|gyro| < 60 °/s)','calm + level + 25–45 % throttle']
 edges=np.arange(0,65,5); hist,_=np.histogram(thp,edges); pct=100*hist/hist.sum()
 D['thrUse']={'labels':['%d–%d'%(edges[i],edges[i+1]) for i in range(len(hist))],'pct':[round(float(v),1) for v in pct]}
-amps=c['amperageLatest'][fl]/100
 tb=np.arange(0,62.5,2.5); ab=[]
-for i in range(len(tb)-1):
-    m=(thp>=tb[i])&(thp<tb[i+1])
-    if m.sum()>fs*2: ab.append([float(tb[i]+1.25),round(float(np.median(amps[m])),2),int(m.sum())])
+if 'amperageLatest' in c:   # no current sensor -> no amps chart (template hides it)
+    amps=c['amperageLatest'][fl]/100
+    for i in range(len(tb)-1):
+        m=(thp>=tb[i])&(thp<tb[i+1])
+        if m.sum()>fs*2: ab.append([float(tb[i]+1.25),round(float(np.median(amps[m])),2),int(m.sum())])
 D['amps']=ab
 # stick estimate under the current curve
 xs=np.linspace(0,100,2001); ys=np.array([out_pct(*cur,x) for x in xs]); stick=np.interp(thp,ys,xs)
